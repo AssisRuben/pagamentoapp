@@ -60,7 +60,19 @@ export async function POST(request: NextRequest) {
       payment.id ? String(payment.id) : undefined
     );
 
-    return NextResponse.json({ orderId: order.id, status: payment.status });
+    const transactionData = payment.point_of_interaction?.transaction_data;
+
+    return NextResponse.json({
+      orderId: order.id,
+      status: payment.status,
+      pix: transactionData?.qr_code
+        ? {
+            qrCode: transactionData.qr_code,
+            qrCodeBase64: transactionData.qr_code_base64,
+          }
+        : undefined,
+      ticketUrl: transactionData?.ticket_url,
+    });
   } catch (error) {
     console.error("Erro ao criar pagamento no Mercado Pago:", error);
     // Pedido fica REJECTED e o carrinho permanece intacto: o cliente pode

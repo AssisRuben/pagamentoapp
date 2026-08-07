@@ -3,7 +3,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { getOrCreateCart } from "@/lib/cart";
 import { formatCentsToBRL } from "@/lib/format";
-import { updateCartItemQuantity, removeCartItem } from "@/lib/actions/cart";
+import CartItemControls from "@/components/CartItemControls";
 
 export default async function CarrinhoPage() {
   const session = await auth();
@@ -30,18 +30,6 @@ export default async function CarrinhoPage() {
       ) : (
         <div className="flex flex-col gap-4">
           {cart.items.map((item) => {
-            const increment = updateCartItemQuantity.bind(
-              null,
-              item.id,
-              item.quantity + 1
-            );
-            const decrement = updateCartItemQuantity.bind(
-              null,
-              item.id,
-              item.quantity - 1
-            );
-            const remove = removeCartItem.bind(null, item.id);
-
             return (
               <div
                 key={item.id}
@@ -61,35 +49,7 @@ export default async function CarrinhoPage() {
                   <span className="text-sm text-black/60 dark:text-white/60">
                     {formatCentsToBRL(item.product.priceCents)} / unidade
                   </span>
-                  <div className="mt-1 flex items-center gap-3">
-                    <form action={decrement}>
-                      <button
-                        type="submit"
-                        className="h-7 w-7 rounded border border-black/15 dark:border-white/20"
-                        aria-label="Diminuir quantidade"
-                      >
-                        −
-                      </button>
-                    </form>
-                    <span>{item.quantity}</span>
-                    <form action={increment}>
-                      <button
-                        type="submit"
-                        className="h-7 w-7 rounded border border-black/15 dark:border-white/20"
-                        aria-label="Aumentar quantidade"
-                      >
-                        +
-                      </button>
-                    </form>
-                    <form action={remove}>
-                      <button
-                        type="submit"
-                        className="ml-2 text-sm text-red-600 underline"
-                      >
-                        Remover
-                      </button>
-                    </form>
-                  </div>
+                  <CartItemControls itemId={item.id} quantity={item.quantity} />
                 </div>
                 <div className="font-semibold">
                   {formatCentsToBRL(item.product.priceCents * item.quantity)}

@@ -40,7 +40,7 @@ export default async function CheckoutPage() {
         </div>
       </div>
 
-      <PaymentBrick totalCents={totalCents} />
+      <PaymentBrick totalCents={totalCents} payerEmail={session!.user.email!} />
     </main>
   );
 }
