@@ -1,12 +1,15 @@
 # API SGF — `efetuar-venda-v1` (notas de implementação validadas)
 
 Testado em produção nos dias 2026-08-07 e 2026-08-12, contra o gateway real
-(CNPJ 63.396.709/0001-78, `cod_farmacia` 13040, `cod_filial` 1). **17
-chamadas de teste no total** — 12 resultaram em erro 500 (nenhuma venda
-criada) e **5 tiveram sucesso** (`numeroNota` 751038, 751040, 751041, 751042,
-751043); essas 5 foram canceladas em seguida via `atualizar-status-v1`, e
-nenhuma delas chegou a gerar nota fiscal antes do cancelamento (confirmado
-via `consultar-venda-v1`, `xmlNfe`/`numeroNotaFiscal` sempre `null`).
+(CNPJ 63.396.709/0001-78, `cod_farmacia` 13040, `cod_filial` 1). **18
+chamadas de teste em `efetuar-venda-v1`** — 12 resultaram em erro 500
+(nenhuma venda criada) e **6 tiveram sucesso** (`numeroNota` 751038, 751040,
+751041, 751042, 751043, 751047); todas as 6 foram canceladas em seguida via
+`atualizar-status-v1`, e nenhuma delas chegou a gerar nota fiscal antes do
+cancelamento (confirmado via `consultar-venda-v1`, `xmlNfe`/
+`numeroNotaFiscal` sempre `null`). Além disso, mais 3 chamadas de teste em
+`atualizar-status-v1` (tentando `status: "1"`, `"2"`, `"3"`) — todas
+rejeitadas com 400, ver seção sobre emissão de nota fiscal abaixo.
 
 Este documento existe porque **o comportamento real do endpoint diverge da
 documentação Swagger/OpenAPI (`api-sgf-openapi.json` / `api-sgf.pdf`) em
@@ -140,27 +143,31 @@ empírico observado, não documentado oficialmente.
 {"numeroNota":751038,"numeroPedido":"PED-XXXX","statusPedido":{"codigo":"1","descricao":"PENDENTE"}}
 ```
 
-### ⚠️ Ponto em aberto, importante pra produção
+### ✅ Emissão de nota fiscal — RESOLVIDO (não é gap técnico, é o fluxo esperado)
 
 `efetuar-venda-v1` deixa a venda como **PENDENTE**, sem gerar nota fiscal —
 confirmamos via `GET consultar-venda-v1` que `xmlNfe`, `numeroCupomFiscal` e
 `numeroNotaFiscal` ficam `null` depois da chamada. Isso bate com o fluxo em 3
 passos que a **API PDV** (documento separado, `api-pdv.pdf`) expõe:
-`efetuar-venda-v1` → `finalizar-venda-v1` → `emitir-nota-v1`. Só que esses
-dois últimos passos **não existem/não estão documentados do lado do gateway
-SGF** (só existem na API PDV, que roda local na farmácia, endpoints
-`/api/venda/...`, não `/integracao/venda/ecommerce/...`).
+`efetuar-venda-v1` → `finalizar-venda-v1` → `emitir-nota-v1` — só que esses
+dois últimos passos não existem no gateway SGF (só na API PDV local).
 
-**Ou seja: ainda não sabemos como a nota fiscal é de fato emitida via SGF.**
-Possibilidades a investigar antes de ir pra produção:
-1. O SGF emite a nota automaticamente depois de um tempo/evento (assíncrono).
-2. Existe uma chamada equivalente a `finalizar-venda-v1`/`emitir-nota-v1` no
-   gateway SGF que não está na doc que temos.
-3. Precisa mesmo contatar a Trier pra confirmar o fluxo completo.
+**Confirmamos por teste (2026-08-12) que `atualizar-status-v1` não serve pra
+avançar esse status**: tentamos `status: "1"`, `"2"` e `"3"` — todos
+rejeitados com `400 "Status inválido: N."`, inclusive o `"1"` (o próprio
+código de PENDENTE que o pedido já tinha). Esse endpoint aceita
+**exclusivamente `"4"` (cancelar)**; diferente do campo `entrega`, aqui a
+doc está certa — não existe, via API, nenhum jeito de confirmar/faturar o
+pedido.
 
-**Não construir o fluxo de produção em cima da suposição de que
-`efetuar-venda-v1` sozinho já fecha a venda.** Testar o ciclo completo
-(inclusive geração de nota) antes de expor isso pra cliente real.
+**Isso não é um problema a resolver — é o fluxo de negócio pretendido**: o
+pedido cai como PENDENTE na tela do PDV físico da farmácia (com
+`pagamento.pagamentoRealizado: true` refletindo o Pix já confirmado pelo
+Mercado Pago), e **o caixa da farmácia processa manualmente a partir daí** —
+separa os itens e despacha pro motoboy. A emissão da nota fiscal acontece do
+lado do PDV físico, fora do escopo da integração via API. **O app só precisa
+garantir que o pedido chegue certo (produtos, cliente, pagamento marcado como
+realizado) até o status PENDENTE — o resto é operação da loja, não código.**
 
 ## Cancelamento (usado em todos os testes acima)
 
@@ -176,11 +183,18 @@ Retorna `statusPedido: {"codigo":"4","descricao":"CANCELADO"}`.
 `codigoProduto: 3774` — "SERINGA SR 5ML 25X7 1UN" — R$ 2,00 — estoque real
 disponível, `tipo_lista` null (venda livre, sem exigência de receita).
 
-## Log dos 17 testes (referência)
+## Log dos testes (referência)
 
-`TESTE-20260807-01` a `06` (6 chamadas, todas 500) e `TESTE-20260812-02` a
-`12` (11 chamadas: `02`, `08`, `09`, `10`, `11` com sucesso/200; `03`, `04`,
-`05`, `06`, `07`, `12` com 500) — histórico completo de isolamento campo a
-campo até chegar na receita documentada acima. Todo `numeroNota` retornado
-(as 5 chamadas de sucesso) foi cancelado via `atualizar-status-v1` logo em
-seguida.
+**`efetuar-venda-v1`** — `TESTE-20260807-01` a `06` (6 chamadas, todas 500) e
+`TESTE-20260812-02` a `13` (12 chamadas: `02`, `08`, `09`, `10`, `11`, `13`
+com sucesso/200; `03`, `04`, `05`, `06`, `07`, `12` com 500) — histórico
+completo de isolamento campo a campo até chegar na receita documentada
+acima, mais o teste de 2026-08-12 (`13`, `numeroNota` 751047) usado pra
+investigar emissão de nota fiscal. Todo `numeroNota` retornado (6 chamadas
+de sucesso) foi cancelado via `atualizar-status-v1` logo em seguida.
+
+**`atualizar-status-v1`** — testado com `status: "1"`, `"2"`, `"3"` sobre o
+pedido `TESTE-20260812-13` (`numeroNota` 751047): todas as 3 tentativas
+retornaram `400 "Status inválido: N."`. Confirma que o endpoint só aceita
+`"4"` (cancelar) — não existe transição de status via API além do
+cancelamento.
