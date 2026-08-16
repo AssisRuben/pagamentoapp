@@ -8,24 +8,27 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
+  id                 String   @id @default(cuid())
+  name               String
+  email              String   @unique
+  passwordHash       String
+  cpf                String?  @unique
+  vendedorAttributed Boolean  @default(false)
+  createdAt          DateTime @default(now())
 
   cart   Cart?
   orders Order[]
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String
-  priceCents  Int
-  imageUrl    String
-  stock       Int      @default(0)
-  createdAt   DateTime @default(now())
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String
+  priceCents    Int
+  imageUrl      String
+  stock         Int      @default(0)
+  codigoProduto Int?     @unique
+  createdAt     DateTime @default(now())
 
   cartItems  CartItem[]
   orderItems OrderItem[]
@@ -58,24 +61,39 @@ enum OrderStatus {
   REJECTED
 }
 
+enum FulfillmentType {
+  DELIVERY
+  PICKUP
+}
+
 model Order {
-  id          String      @id @default(cuid())
-  userId      String
-  status      OrderStatus @default(PENDING)
-  totalCents  Int
-  mpPaymentId String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id                String          @id @default(cuid())
+  userId            String
+  status            OrderStatus     @default(PENDING)
+  totalCents        Int
+  mpPaymentId       String?
+  fulfillmentType   FulfillmentType @default(PICKUP)
+  addressCep        String?
+  addressLogradouro String?
+  addressNumero     String?
+  addressBairro     String?
+  addressCidade     String?
+  addressEstado     String?
+  trierNumeroNota   Int?
+  trierSyncedAt     DateTime?
+  trierError        String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   user  User        @relation(fields: [userId], references: [id])
   items OrderItem[]
 }
 
 model OrderItem {
-  id            String @id @default(cuid())
-  orderId       String
-  productId     String
-  quantity      Int
+  id             String @id @default(cuid())
+  orderId        String
+  productId      String
+  quantity       Int
   unitPriceCents Int
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)

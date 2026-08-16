@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import { getOrCreateCart } from "@/lib/cart";
 import { formatCentsToBRL } from "@/lib/format";
-import PaymentBrick from "@/components/PaymentBrick";
+import CheckoutForm from "@/components/CheckoutForm";
 
 export default async function CheckoutPage() {
   const session = await auth();
@@ -11,6 +12,11 @@ export default async function CheckoutPage() {
   if (cart.items.length === 0) {
     redirect("/carrinho");
   }
+
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session!.user.id },
+    select: { cpf: true },
+  });
 
   const totalCents = cart.items.reduce(
     (sum, item) => sum + item.product.priceCents * item.quantity,
@@ -40,7 +46,11 @@ export default async function CheckoutPage() {
         </div>
       </div>
 
-      <PaymentBrick totalCents={totalCents} payerEmail={session!.user.email!} />
+      <CheckoutForm
+        totalCents={totalCents}
+        payerEmail={session!.user.email!}
+        needsCpf={!user.cpf}
+      />
     </main>
   );
 }

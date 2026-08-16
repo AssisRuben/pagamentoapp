@@ -25,6 +25,30 @@ NEXTAUTH_URL="http://localhost:3000"
 MP_ACCESS_TOKEN="..."                    # Mercado Pago > Suas integrações > Credenciais de teste
 NEXT_PUBLIC_MP_PUBLIC_KEY="..."          # idem, Public Key de teste
 MP_WEBHOOK_SECRET="..."                  # Suas integrações > Webhooks > Configurar notificações > Chave secreta
+
+# Integração Trier SGF (ver docs/API-SGF-EFETUAR-VENDA.md)
+TRIER_API_BASE_URL="https://api-sgf-gateway.triersistemas.com.br/sgfpod1"
+TRIER_API_TOKEN="..."                    # n8n → Credentials → "SGF Trier - Bearer"
+
+# Endereço da farmácia — usado como enderecoEntrega nos pedidos de retirada
+# (o Trier exige o campo mesmo quando não há entrega de verdade)
+TRIER_FARMACIA_LOGRADOURO="Avenida Jovita Feitosa"
+TRIER_FARMACIA_NUMERO="2828"
+TRIER_FARMACIA_BAIRRO="Parquândia"
+TRIER_FARMACIA_CIDADE="Fortaleza"
+TRIER_FARMACIA_ESTADO="CE"
+TRIER_FARMACIA_CEP="60455-410"
+
+# Opcionais — se definidos, todo pedido de cliente "novo no Trier" (nunca
+# comprou fisicamente na farmácia) é atribuído a esse vendedor. Sem eles,
+# nenhuma venda é atribuída a vendedor nenhum.
+TRIER_VENDEDOR_CODIGO="..."
+TRIER_VENDEDOR_NOME="..."
+
+# Email da conta (cadastrada no próprio app) que pode ver /conta/comissao —
+# relatório com nome/valor de pedidos de outros clientes, não pode ficar
+# aberto pra qualquer usuário logado.
+OWNER_EMAIL="..."
 ```
 
 Credenciais de teste do Mercado Pago: painel de desenvolvedores em

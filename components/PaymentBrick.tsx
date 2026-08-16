@@ -12,12 +12,27 @@ type PixData = {
   qrCodeBase64?: string;
 };
 
+export type CheckoutData = {
+  cpf?: string;
+  fulfillmentType: "DELIVERY" | "PICKUP";
+  address?: {
+    cep?: string;
+    logradouro: string;
+    numero?: string;
+    bairro: string;
+    cidade: string;
+    estado: string;
+  };
+};
+
 export default function PaymentBrick({
   totalCents,
   payerEmail,
+  checkoutData,
 }: {
   totalCents: number;
   payerEmail: string;
+  checkoutData: CheckoutData;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +100,7 @@ export default function PaymentBrick({
           const res = await fetch("/api/payments", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
+            body: JSON.stringify({ ...checkoutData, payment: formData }),
           });
 
           if (!res.ok) {

@@ -33,7 +33,7 @@ Content-Type: application/json
 
 Único endpoint de ESCRITA da API relevante pra esse projeto (dos ~100 endpoints do OpenAPI, só 3 são de escrita no total). Registra o pedido como venda no Trier.
 
-**JÁ TESTADO (2026-08-07 e 2026-08-12, 17 chamadas reais contra produção — 12 falharam com 500, 5 tiveram sucesso e foram canceladas depois)** — e o comportamento real diverge bastante do que o schema documenta. **Ver [`API-SGF-EFETUAR-VENDA.md`](API-SGF-EFETUAR-VENDA.md) para a receita de payload que funciona de verdade, os campos que são obrigatórios na prática (mas opcionais no schema), e o ponto ainda em aberto sobre emissão de nota fiscal.** Não implementar esse fluxo sem ler esse documento primeiro — o payload simplificado abaixo (mantido aqui só como referência histórica do que a doc oficial sugere) **não funciona sozinho**, retorna 500.
+**JÁ TESTADO (2026-08-07, 2026-08-12 e 2026-08-16, 22 chamadas reais contra produção — 12 falharam com 500, 10 tiveram sucesso e foram canceladas depois)**. A conclusão final (2026-08-16) é simples: **o único campo obrigatório na prática além do que o schema já documenta é o `enderecoEntrega`** — o `cliente` funciona só com `nome` + `numeroCpfCnpj`, exatamente como o schema sempre disse. **Ver [`API-SGF-EFETUAR-VENDA.md`](API-SGF-EFETUAR-VENDA.md) para a receita completa e o ponto ainda em aberto sobre emissão de nota fiscal.** O payload simplificado abaixo (mantido aqui só como referência histórica do que a doc oficial sugere) **não funciona sozinho** sem `enderecoEntrega`, retorna 500.
 
 Corpo (`VendaEcommerceIntegracaoDto`) — versão simplificada da doc oficial, **incompleta na prática**:
 

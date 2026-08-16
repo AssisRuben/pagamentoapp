@@ -1,15 +1,23 @@
 # API SGF — `efetuar-venda-v1` (notas de implementação validadas)
 
-Testado em produção nos dias 2026-08-07 e 2026-08-12, contra o gateway real
-(CNPJ 63.396.709/0001-78, `cod_farmacia` 13040, `cod_filial` 1). **18
-chamadas de teste em `efetuar-venda-v1`** — 12 resultaram em erro 500
-(nenhuma venda criada) e **6 tiveram sucesso** (`numeroNota` 751038, 751040,
-751041, 751042, 751043, 751047); todas as 6 foram canceladas em seguida via
-`atualizar-status-v1`, e nenhuma delas chegou a gerar nota fiscal antes do
-cancelamento (confirmado via `consultar-venda-v1`, `xmlNfe`/
-`numeroNotaFiscal` sempre `null`). Além disso, mais 3 chamadas de teste em
-`atualizar-status-v1` (tentando `status: "1"`, `"2"`, `"3"`) — todas
-rejeitadas com 400, ver seção sobre emissão de nota fiscal abaixo.
+Testado em produção nos dias 2026-08-07, 2026-08-12 e 2026-08-16, contra o
+gateway real (CNPJ 63.396.709/0001-78, `cod_farmacia` 13040, `cod_filial`
+1). **22 chamadas de teste em `efetuar-venda-v1`** — 12 resultaram em erro
+500 (nenhuma venda criada) e **10 tiveram sucesso**; todas as 10 foram
+canceladas em seguida via `atualizar-status-v1`, e nenhuma delas chegou a
+gerar nota fiscal antes do cancelamento (confirmado via `consultar-venda-v1`,
+`xmlNfe`/`numeroNotaFiscal` sempre `null`). Além disso, mais 3 chamadas de
+teste em `atualizar-status-v1` (tentando `status: "1"`, `"2"`, `"3"`) —
+todas rejeitadas com 400, ver seção sobre emissão de nota fiscal abaixo.
+
+**Atualização de 2026-08-16, importante**: uma rodada de testes adicional
+revelou que a receita "completa" documentada anteriormente (`cliente` com 14
+campos) era **superestimada** — o `cliente` mínimo do próprio schema
+(`nome` + `numeroCpfCnpj`) já basta. **O único campo realmente exigido além
+do schema documentado é o `enderecoEntrega`** (ver seção abaixo). Toda a
+complexidade extra de `cliente` que havia sido registrada aqui nunca foi
+necessária — ela só nunca tinha sido isolada corretamente da presença do
+`enderecoEntrega` nos testes anteriores.
 
 Este documento existe porque **o comportamento real do endpoint diverge da
 documentação Swagger/OpenAPI (`api-sgf-openapi.json` / `api-sgf.pdf`) em
@@ -46,36 +54,28 @@ todo, log completo no fim deste documento) até achar a receita que funciona
 (abaixo). Isso não está reportado/confirmado pela Trier — é comportamento
 empírico observado, não documentado oficialmente.
 
-### Campos que PRECISAM estar presentes (confirmado por teste)
+### O único campo que PRECISA estar presente além do schema (confirmado por teste)
 
-- **`cliente` completo** — não basta `nome` + `numeroCpfCnpj` (que é tudo que
-  o schema marca como obrigatório; testamos e falha). O conjunto abaixo,
-  testado junto com `enderecoEntrega`, funciona de forma confiável (5/5
-  sucessos): `nome`, `numeroCpfCnpj`, `codigoCidade`, `email`, `cep`,
-  `estado`, `fone`, `bairro`, `logradouro`, `numeroEndereco`, `ativo`,
-  `grupo` (objeto `{codigo, nome}`), `empresaConvenio` (objeto
-  `{codigo, nome}`), `sexo`, `numeroRGIE`, `dataNascimento`, `celular`.
-  **Ressalva**: não isolamos qual subconjunto exato desses 14 campos é
-  realmente necessário — só confirmamos que "mínimo do schema" (2 campos)
-  falha e "completo" (14 campos) funciona. É possível que menos campos já
-  bastem; trate a lista abaixo como receita conhecida-boa, não como o
-  mínimo comprovado.
-  - `grupo`: usamos `{codigo: 1, nome: "PADRAO"}` — não confirmamos se há
-    mais de um grupo de cliente nessa farmácia; ainda não personalizamos por
-    cliente real.
-  - `empresaConvenio`: usamos `{codigo: 0, nome: "string"}` — código `0`
-    aparenta significar "sem convênio", o que é o caso normal pra cliente de
-    e-commerce (sem plano/convênio corporativo vinculado).
 - **`enderecoEntrega`** — **obrigatório na prática, mesmo em pedido de
   retirada (`entrega: false`)**. Isso contradiz o schema (campo opcional) e a
   lógica (não devia precisar de endereço de entrega numa retirada), mas
-  confirmamos por teste direto: sem `enderecoEntrega`, dá 500 mesmo com
-  `cliente` completo.
+  confirmamos por teste direto: sem `enderecoEntrega`, dá 500 — **mesmo com
+  `cliente` schema-mínimo**. Esse é o único fator real; toda a complexidade
+  extra de `cliente` que a gente achava necessária (ver histórico abaixo)
+  nunca foi.
   - **Workaround pra retirada em loja**: preencher `enderecoEntrega` com o
     **endereço da própria farmácia**, não do cliente — já que o campo é
     obrigatório mas não se aplica semanticamente.
-- **`produtos`** — array com pelo menos 1 item (já era obrigatório no schema).
-- **`pagamento`** — `{pagamentoRealizado, valorParcela}` funciona normalmente.
+
+### `cliente` — só precisa do mínimo que o próprio schema já pedia
+
+Confirmado por teste em 2026-08-16: `{ nome, numeroCpfCnpj }` já é
+suficiente, **desde que `enderecoEntrega` esteja presente**. Nenhum destes
+precisa ir no formulário de cadastro/checkout: `codigoCidade`, `email`,
+`cep`, `estado`, `fone`, `bairro`, `logradouro`, `numeroEndereco`, `ativo`,
+`grupo`, `empresaConvenio`, `sexo`, `numeroRGIE`, `dataNascimento`,
+`celular`. (Ainda pode fazer sentido coletar `email`/`fone` pro uso do
+próprio app — só não são exigidos pelo Trier.)
 
 ### Campos confirmados como realmente opcionais (testado, não fazem diferença)
 
@@ -86,35 +86,36 @@ empírico observado, não documentado oficialmente.
 - **`entrega`** — funciona corretamente como `true` (tele-entrega) ou `false`
   (retirada) — usar o valor certo por pedido. O `"enum": [false]` estranho
   que aparece na spec pode ser ignorado; testamos os dois valores e ambos
-  funcionam desde que `cliente` e `enderecoEntrega` estejam completos.
+  funcionam desde que `enderecoEntrega` esteja presente.
+- **`produtos`** — array com pelo menos 1 item (já era obrigatório no
+  schema — nunca precisou de nada além disso).
+- **`pagamento`** — `{pagamentoRealizado, valorParcela}` funciona
+  normalmente, sem exigências extra.
 
-## Payload de referência (testado, retornou 200)
+### Histórico — por que o documento antes dizia que `cliente` precisava de 14 campos
+
+As primeiras rodadas de teste (07 e 12/08) sempre testaram "cliente
+incompleto" **junto com** "sem `enderecoEntrega`" ao mesmo tempo, e só
+depois "cliente completo" **junto com** "`enderecoEntrega` presente". Isso
+fez parecer que os dois eram necessários juntos. Só em 2026-08-16, testando
+`cliente` mínimo + `enderecoEntrega` isoladamente, ficou claro que
+`enderecoEntrega` sozinho já era suficiente. Fica registrado aqui como
+lição: **ao isolar causa de bug, testar a combinação inversa também** (o que
+antes parecia "opcional mas seguro manter" pode estar mascarando qual campo
+é o real responsável).
+
+## Payload de referência (testado, retornou 200 em 2026-08-16)
 
 ```json
 {
   "numeroPedido": "PED-XXXX",
-  "dataPedido": "2026-08-12T13:00:00-0300",
+  "dataPedido": "2026-08-16T16:09:06-0300",
   "valorTotalVenda": 2.00,
   "valorFrete": 0,
   "entrega": false,
   "cliente": {
     "nome": "Nome Completo",
-    "numeroCpfCnpj": "000.000.000-00",
-    "codigoCidade": "LAJEADO",
-    "email": "cliente@exemplo.com",
-    "cep": "60000000",
-    "estado": "CE",
-    "fone": "(85)99999-9999",
-    "bairro": "CENTRO",
-    "logradouro": "RUA X",
-    "numeroEndereco": "1",
-    "ativo": true,
-    "grupo": { "codigo": 1, "nome": "PADRAO" },
-    "empresaConvenio": { "codigo": 0, "nome": "string" },
-    "sexo": "M",
-    "numeroRGIE": "1234567890",
-    "dataNascimento": "1990-05-12T00:00:00-0300",
-    "celular": "(85)90000-0000"
+    "numeroCpfCnpj": "000.000.000-00"
   },
   "enderecoEntrega": {
     "logradouro": "endereço da farmácia (retirada) ou do cliente (entrega)",
@@ -137,10 +138,14 @@ empírico observado, não documentado oficialmente.
 }
 ```
 
+Esse é o payload mínimo real — `cliente` não precisa de mais nada além do
+que já está aqui. `vendedor` pode ser adicionado (opcional) quando a venda
+deve ser atribuída a um vendedor.
+
 ## Resposta de sucesso
 
 ```json
-{"numeroNota":751038,"numeroPedido":"PED-XXXX","statusPedido":{"codigo":"1","descricao":"PENDENTE"}}
+{"numeroNota":751729,"numeroPedido":"PED-XXXX","statusPedido":{"codigo":"1","descricao":"PENDENTE"}}
 ```
 
 ### ✅ Emissão de nota fiscal — RESOLVIDO (não é gap técnico, é o fluxo esperado)
@@ -185,13 +190,15 @@ disponível, `tipo_lista` null (venda livre, sem exigência de receita).
 
 ## Log dos testes (referência)
 
-**`efetuar-venda-v1`** — `TESTE-20260807-01` a `06` (6 chamadas, todas 500) e
+**`efetuar-venda-v1`** — `TESTE-20260807-01` a `06` (6 chamadas, todas 500),
 `TESTE-20260812-02` a `13` (12 chamadas: `02`, `08`, `09`, `10`, `11`, `13`
-com sucesso/200; `03`, `04`, `05`, `06`, `07`, `12` com 500) — histórico
-completo de isolamento campo a campo até chegar na receita documentada
-acima, mais o teste de 2026-08-12 (`13`, `numeroNota` 751047) usado pra
-investigar emissão de nota fiscal. Todo `numeroNota` retornado (6 chamadas
-de sucesso) foi cancelado via `atualizar-status-v1` logo em seguida.
+com sucesso/200; `03`, `04`, `05`, `06`, `07`, `12` com 500) e
+`TESTE-20260816-01` a `04` (4 chamadas, todas com sucesso/200 — a rodada que
+provou que `cliente` schema-mínimo já bastava) — histórico completo de
+isolamento campo a campo até chegar na receita real documentada acima.
+`numeroNota` das chamadas de sucesso: 751038, 751040, 751041, 751042,
+751043, 751047, 751726, 751727, 751728, 751729 — todas as 10 canceladas via
+`atualizar-status-v1` logo em seguida.
 
 **`atualizar-status-v1`** — testado com `status: "1"`, `"2"`, `"3"` sobre o
 pedido `TESTE-20260812-13` (`numeroNota` 751047): todas as 3 tentativas
