@@ -25,6 +25,8 @@ model User {
   careLinksAsTitular   CareLink[]          @relation("TitularLinks")
   careLinksAsCaregiver CareLink[]          @relation("CaregiverLinks")
   healthMeasurements   HealthMeasurement[]
+  timelineEvents       TimelineEvent[]
+  careChecklistItems   CareChecklistItem[]
 }
 
 enum CareLinkStatus {
@@ -159,4 +161,46 @@ model OrderItem {
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
+}
+
+enum TimelineEventType {
+  ACHIEVEMENT_WEIGHT
+  ACHIEVEMENT_PRESSURE
+  ACHIEVEMENT_CARE_COMPLETE
+}
+
+model TimelineEvent {
+  id         String            @id @default(cuid())
+  userId     String
+  type       TimelineEventType
+  title      String
+  message    String
+  occurredAt DateTime          @default(now())
+  createdAt  DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, occurredAt])
+}
+
+model CareChecklistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user        User                       @relation(fields: [userId], references: [id])
+  completions CareChecklistCompletion[]
+}
+
+model CareChecklistCompletion {
+  id          String   @id @default(cuid())
+  itemId      String
+  date        DateTime @db.Date
+  completedAt DateTime @default(now())
+
+  item CareChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, date])
 }

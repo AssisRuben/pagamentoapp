@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { OrderStatus } from "@/lib/generated/prisma/client";
-import { clienteExisteNoTrier, efetuarVendaTrier } from "@/lib/trier";
+import { efetuarVendaTrier } from "@/lib/trier";
 
 export function mapMpStatusToOrderStatus(
   mpStatus: string | undefined

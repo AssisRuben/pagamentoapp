@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
@@ -13,6 +13,21 @@ import {
   LogOut,
   LogIn,
 } from "lucide-react";
+
+function subscribeNoop() {
+  return () => {};
+}
+
+// createPortal precisa de `document`, que só existe no client. Usar
+// useSyncExternalStore em vez de useState+useEffect evita o re-render em
+// cascata (a store "muda" de false pra true só uma vez, na hidratação).
+function useMounted() {
+  return useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false
+  );
+}
 
 const MENU_ITEMS = [
   { href: "/carrinho", label: "Carrinho", icon: ShoppingCart },
@@ -30,11 +45,7 @@ export default function SideMenu({
   signOutAction: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useMounted();
 
   return (
     <>

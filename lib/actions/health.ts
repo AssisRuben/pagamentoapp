@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import type { HealthMeasurementType } from "@/lib/generated/prisma/client";
+import {
+  checkPressureAchievement,
+  checkWeightAchievement,
+} from "@/lib/timeline/achievements";
 
 async function requireUserId(): Promise<string> {
   const session = await auth();
@@ -24,14 +28,24 @@ export type HealthMeasurementValues = {
   measuredAt: Date;
 };
 
+async function checkAchievementsForTypes(
+  userId: string,
+  types: HealthMeasurementType[]
+) {
+  if (types.includes("PESO")) await checkWeightAchievement(userId);
+  if (types.includes("PRESSAO")) await checkPressureAchievement(userId);
+}
+
 export async function addHealthMeasurement(values: HealthMeasurementValues) {
   const userId = await requireUserId();
 
   await prisma.healthMeasurement.create({
     data: { userId, ...values },
   });
+  await checkAchievementsForTypes(userId, [values.type]);
 
   revalidatePath("/saude");
+  revalidatePath("/");
 }
 
 /**
@@ -45,8 +59,13 @@ export async function addHealthMeasurements(entries: HealthMeasurementValues[]) 
   await prisma.healthMeasurement.createMany({
     data: entries.map((values) => ({ userId, ...values })),
   });
+  await checkAchievementsForTypes(
+    userId,
+    entries.map((e) => e.type)
+  );
 
   revalidatePath("/saude");
+  revalidatePath("/");
 }
 
 export async function updateHealthMeasurement(
