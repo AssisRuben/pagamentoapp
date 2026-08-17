@@ -34,6 +34,21 @@ export async function addHealthMeasurement(values: HealthMeasurementValues) {
   revalidatePath("/saude");
 }
 
+/**
+ * Cria vários registros de uma vez (um por tipo preenchido no formulário de
+ * "Novo registro", que mostra os 4 campos ao mesmo tempo em vez de pedir
+ * pra escolher um tipo por vez).
+ */
+export async function addHealthMeasurements(entries: HealthMeasurementValues[]) {
+  const userId = await requireUserId();
+
+  await prisma.healthMeasurement.createMany({
+    data: entries.map((values) => ({ userId, ...values })),
+  });
+
+  revalidatePath("/saude");
+}
+
 export async function updateHealthMeasurement(
   id: string,
   values: Omit<HealthMeasurementValues, "type">
