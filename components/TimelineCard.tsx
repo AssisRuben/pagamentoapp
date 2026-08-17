@@ -78,7 +78,7 @@ export default function TimelineCard({ item }: { item: TimelineFeedItem }) {
     <article className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-black/5 dark:ring-white/10">
       {item.imageUrl && (
         // eslint-disable-next-line @next/next/no-img-element -- imagem externa (Unsplash), sem otimização própria necessária pra card decorativo
-        <img src={item.imageUrl} alt="" className="h-32 w-full object-cover" />
+        <img src={item.imageUrl} alt="" className="h-56 w-full object-cover" />
       )}
       <div className="p-4">
         {item.authorName && (

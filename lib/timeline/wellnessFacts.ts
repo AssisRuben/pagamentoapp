@@ -36,8 +36,22 @@ const WELLNESS_FACTS: string[] = [
 ];
 
 export function pickWellnessFact(): string {
+  return pickWellnessFacts(1)[0];
+}
+
+/**
+ * Escolhe `count` curiosidades distintas do dia. O passo de 11 (coprimo
+ * com o tamanho da lista) garante que as curiosidades escolhidas não se
+ * repitam entre si no mesmo dia.
+ */
+export function pickWellnessFacts(count: number): string[] {
   const dayOfYear = Math.floor(
     (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
   );
-  return WELLNESS_FACTS[dayOfYear % WELLNESS_FACTS.length];
+  const facts: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const index = (dayOfYear + i * 11) % WELLNESS_FACTS.length;
+    facts.push(WELLNESS_FACTS[index]);
+  }
+  return facts;
 }

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getCartItemCount } from "@/lib/cart";
 import { signOutAction } from "@/lib/actions/auth";
 import SideMenu from "@/components/SideMenu";
+import HeaderShell from "@/components/HeaderShell";
 
 export default async function Header() {
   const session = await auth();
@@ -12,7 +13,7 @@ export default async function Header() {
     : 0;
 
   return (
-    <header className="sticky top-0 z-20 bg-navy text-white shadow-sm">
+    <HeaderShell>
       <div className="mx-auto flex max-w-5xl items-center justify-between px-2 py-3">
         <div className="flex items-center gap-1">
           <SideMenu
@@ -41,6 +42,6 @@ export default async function Header() {
           )}
         </Link>
       </div>
-    </header>
+    </HeaderShell>
   );
 }
