@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Pill, ShoppingBag, Gift } from "lucide-react";
+import { Home, Pill, ShoppingBag, HeartHandshake, Activity } from "lucide-react";
 
 const TABS = [
   { href: "/", label: "Início", icon: Home },
   { href: "/medicamentos", label: "Medicamentos", icon: Pill },
   { href: "/produtos", label: "Produtos", icon: ShoppingBag },
-  { href: "/indicacao", label: "Indique e Ganhe", icon: Gift },
+  { href: "/cuidado", label: "Cuidado", icon: HeartHandshake },
+  { href: "/saude", label: "Saúde", icon: Activity },
 ];
 
 export default function BottomTabBar() {
