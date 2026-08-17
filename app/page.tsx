@@ -8,7 +8,8 @@ import TimelineFeed from "@/components/TimelineFeed";
 import type { TimelineFeedItem } from "@/components/TimelineCard";
 import { formatDateLabel, todayDate, todayDateString } from "@/lib/timeline/format";
 import { getExtraInfo } from "@/lib/timeline/extraInfo";
-import { getReactionState } from "@/lib/timeline/reactions";
+import { getReactionStates } from "@/lib/timeline/reactions";
+import { getMoreAchievements } from "@/lib/actions/timeline";
 import {
   fetchCoverImage,
   fetchFinanceSnippet,
@@ -51,7 +52,7 @@ async function getContentItems(userId: string): Promise<TimelineFeedItem[]> {
     fetchCoverImage("motivação"),
   ]);
 
-  const candidates: Omit<TimelineFeedItem, "liked" | "comments">[] = [];
+  const candidates: Omit<TimelineFeedItem, "liked" | "likeCount" | "comments">[] = [];
   if (fact) {
     candidates.push({
       id: "content-fact",
@@ -89,17 +90,12 @@ async function getContentItems(userId: string): Promise<TimelineFeedItem[]> {
     });
   }
 
-  const { likedKeys, commentsByKey } = await getReactionState(
-    userId,
-    candidates.map((c) => c.itemKey)
-  );
-  const liked = new Set(likedKeys);
+  const reactionStates = await getReactionStates(userId, candidates.map((c) => c.itemKey));
 
-  return candidates.map((c) => ({
-    ...c,
-    liked: liked.has(c.itemKey),
-    comments: commentsByKey[c.itemKey] ?? [],
-  }));
+  return candidates.map((c) => {
+    const state = reactionStates[c.itemKey];
+    return { ...c, liked: state.likedByMe, likeCount: state.likeCount, comments: state.comments };
+  });
 }
 
 async function getInitialAchievements(
@@ -113,23 +109,24 @@ async function getInitialAchievements(
   const hasMore = events.length > ACHIEVEMENTS_PAGE_SIZE;
   const page = events.slice(0, ACHIEVEMENTS_PAGE_SIZE);
 
-  const { likedKeys, commentsByKey } = await getReactionState(
-    userId,
-    page.map((e) => e.id)
-  );
-  const liked = new Set(likedKeys);
+  const reactionStates = await getReactionStates(userId, page.map((e) => e.id));
 
-  const items: TimelineFeedItem[] = page.map((event) => ({
-    id: event.id,
-    itemKey: event.id,
-    kind: "achievement",
-    title: event.title,
-    message: event.message,
-    extra: getExtraInfo(event.type),
-    dateLabel: formatDateLabel(event.occurredAt),
-    liked: liked.has(event.id),
-    comments: commentsByKey[event.id] ?? [],
-  }));
+  const items: TimelineFeedItem[] = page.map((event) => {
+    const state = reactionStates[event.id];
+    return {
+      id: event.id,
+      itemKey: event.id,
+      kind: "achievement",
+      title: event.title,
+      message: event.message,
+      extra: getExtraInfo(event.type),
+      dateLabel: formatDateLabel(event.occurredAt),
+      liked: state.likedByMe,
+      likeCount: state.likeCount,
+      comments: state.comments,
+      shareState: event.sharedAt ? "shared" : "shareable",
+    };
+  });
 
   return { items, hasMore };
 }
@@ -174,9 +171,10 @@ export default async function HomePage() {
         <>
           <DailyChecklist items={checklistItems} />
           <TimelineFeed
-            contentItems={contentItems}
-            initialAchievements={initialAchievements}
+            pinnedItems={contentItems}
+            initialItems={initialAchievements}
             initialHasMore={achievementsHasMore}
+            loadMore={getMoreAchievements}
           />
         </>
       )}

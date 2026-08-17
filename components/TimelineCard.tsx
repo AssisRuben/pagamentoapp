@@ -1,10 +1,20 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Heart, MessageCircle, ChevronDown } from "lucide-react";
-import { addComment, toggleLike } from "@/lib/actions/timeline";
+import { Heart, MessageCircle, ChevronDown, Share2, Lock } from "lucide-react";
+import {
+  addComment,
+  shareAchievement,
+  toggleLike,
+  unshareAchievement,
+} from "@/lib/actions/timeline";
 
-export type CommentItem = { id: string; text: string; createdAt: string };
+export type CommentItem = {
+  id: string;
+  text: string;
+  createdAt: string;
+  authorName: string;
+};
 
 export type TimelineFeedItem = {
   id: string;
@@ -16,7 +26,12 @@ export type TimelineFeedItem = {
   dateLabel: string;
   kind: "achievement" | "content";
   liked: boolean;
+  likeCount: number;
   comments: CommentItem[];
+  /** Presente no feed público: quem conquistou. */
+  authorName?: string;
+  /** Presente só na sua própria home, em conquistas: controla o botão de compartilhar. */
+  shareState?: "shareable" | "shared";
 };
 
 export default function TimelineCard({ item }: { item: TimelineFeedItem }) {
@@ -24,11 +39,14 @@ export default function TimelineCard({ item }: { item: TimelineFeedItem }) {
   const [expanded, setExpanded] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [liked, setLiked] = useState(item.liked);
+  const [likeCount, setLikeCount] = useState(item.likeCount);
   const [comments, setComments] = useState(item.comments);
+  const [shareState, setShareState] = useState(item.shareState);
   const [commentText, setCommentText] = useState("");
 
   function handleLike() {
     setLiked((prev) => !prev);
+    setLikeCount((prev) => (liked ? prev - 1 : prev + 1));
     startTransition(async () => {
       await toggleLike(item.itemKey);
     });
@@ -44,6 +62,18 @@ export default function TimelineCard({ item }: { item: TimelineFeedItem }) {
     });
   }
 
+  function handleShareToggle() {
+    const next = shareState === "shared" ? "shareable" : "shared";
+    setShareState(next);
+    startTransition(async () => {
+      if (next === "shared") {
+        await shareAchievement(item.itemKey);
+      } else {
+        await unshareAchievement(item.itemKey);
+      }
+    });
+  }
+
   return (
     <article className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-black/5 dark:ring-white/10">
       {item.imageUrl && (
@@ -51,7 +81,12 @@ export default function TimelineCard({ item }: { item: TimelineFeedItem }) {
         <img src={item.imageUrl} alt="" className="h-32 w-full object-cover" />
       )}
       <div className="p-4">
-        {item.kind === "achievement" && (
+        {item.authorName && (
+          <span className="mb-1 block text-xs font-medium text-mint">
+            🎉 {item.authorName} conquistou algo!
+          </span>
+        )}
+        {!item.authorName && item.kind === "achievement" && (
           <span className="mb-1 block text-xs font-medium text-mint">Sua conquista</span>
         )}
         <h3 className="font-semibold">{item.title}</h3>
@@ -87,7 +122,7 @@ export default function TimelineCard({ item }: { item: TimelineFeedItem }) {
             }`}
           >
             <Heart className={`h-4 w-4 ${liked ? "fill-coral" : ""}`} />
-            Curtir
+            {likeCount > 0 ? likeCount : "Curtir"}
           </button>
           <button
             type="button"
@@ -97,6 +132,29 @@ export default function TimelineCard({ item }: { item: TimelineFeedItem }) {
             <MessageCircle className="h-4 w-4" />
             {comments.length > 0 ? `${comments.length} comentário${comments.length > 1 ? "s" : ""}` : "Comentar"}
           </button>
+
+          {shareState && (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={handleShareToggle}
+              className={`ml-auto flex items-center gap-1.5 text-xs font-medium disabled:opacity-50 ${
+                shareState === "shared" ? "text-mint" : "text-navy/50 dark:text-white/50"
+              }`}
+            >
+              {shareState === "shared" ? (
+                <>
+                  <Share2 className="h-3.5 w-3.5" />
+                  Compartilhado
+                </>
+              ) : (
+                <>
+                  <Lock className="h-3.5 w-3.5" />
+                  Compartilhar
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {showComments && (
@@ -106,6 +164,7 @@ export default function TimelineCard({ item }: { item: TimelineFeedItem }) {
                 key={comment.id}
                 className="rounded-xl bg-black/[0.03] px-3 py-2 text-sm dark:bg-white/5"
               >
+                <span className="font-medium">{comment.authorName}: </span>
                 {comment.text}
               </p>
             ))}

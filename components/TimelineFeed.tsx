@@ -2,18 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import TimelineCard, { type TimelineFeedItem } from "@/components/TimelineCard";
-import { getMoreAchievements } from "@/lib/actions/timeline";
 
 export default function TimelineFeed({
-  contentItems,
-  initialAchievements,
+  pinnedItems = [],
+  initialItems,
   initialHasMore,
+  loadMore,
 }: {
-  contentItems: TimelineFeedItem[];
-  initialAchievements: TimelineFeedItem[];
+  pinnedItems?: TimelineFeedItem[];
+  initialItems: TimelineFeedItem[];
   initialHasMore: boolean;
+  loadMore: (offset: number) => Promise<{ items: TimelineFeedItem[]; hasMore: boolean }>;
 }) {
-  const [achievements, setAchievements] = useState(initialAchievements);
+  const [items, setItems] = useState(initialItems);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const fetchingRef = useRef(false);
@@ -27,8 +28,8 @@ export default function TimelineFeed({
       (entries) => {
         if (!entries[0].isIntersecting || fetchingRef.current) return;
         fetchingRef.current = true;
-        getMoreAchievements(achievements.length).then((res) => {
-          setAchievements((prev) => [...prev, ...res.items]);
+        loadMore(items.length).then((res) => {
+          setItems((prev) => [...prev, ...res.items]);
           setHasMore(res.hasMore);
           fetchingRef.current = false;
         });
@@ -38,9 +39,9 @@ export default function TimelineFeed({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, achievements.length]);
+  }, [hasMore, items.length, loadMore]);
 
-  const allItems = [...contentItems, ...achievements];
+  const allItems = [...pinnedItems, ...items];
   if (allItems.length === 0) return null;
 
   return (

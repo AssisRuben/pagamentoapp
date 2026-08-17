@@ -4,7 +4,7 @@ import { authConfig } from "@/auth.config";
 
 const { auth } = NextAuth(authConfig);
 
-const PROTECTED_PREFIXES = ["/carrinho", "/checkout", "/pedidos"];
+const PROTECTED_PREFIXES = ["/carrinho", "/checkout", "/pedidos", "/comunidade"];
 
 export default auth((req) => {
   const { pathname, searchParams } = req.nextUrl;

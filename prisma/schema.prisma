@@ -179,10 +179,15 @@ model TimelineEvent {
   message    String
   occurredAt DateTime          @default(now())
   createdAt  DateTime          @default(now())
+  // null = privada (só o dono vê). Preenchida quando o dono clica em
+  // "Compartilhar" — consentimento explícito exigido pela LGPD pra dado de
+  // saúde (dado sensível). Também usada pra ordenar o feed público.
+  sharedAt   DateTime?
 
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId, occurredAt])
+  @@index([sharedAt])
 }
 
 model CareChecklistItem {
