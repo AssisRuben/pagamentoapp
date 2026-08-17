@@ -18,10 +18,31 @@ model User {
   referredById       String?
   createdAt          DateTime @default(now())
 
-  cart       Cart?
-  orders     Order[]
-  referredBy User?   @relation("Referrals", fields: [referredById], references: [id])
-  referrals  User[]  @relation("Referrals")
+  cart                 Cart?
+  orders               Order[]
+  referredBy           User?      @relation("Referrals", fields: [referredById], references: [id])
+  referrals            User[]     @relation("Referrals")
+  careLinksAsTitular   CareLink[] @relation("TitularLinks")
+  careLinksAsCaregiver CareLink[] @relation("CaregiverLinks")
+}
+
+enum CareLinkStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+model CareLink {
+  id          String         @id @default(cuid())
+  titularId   String
+  caregiverId String?
+  inviteCode  String         @unique
+  status      CareLinkStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  acceptedAt  DateTime?
+
+  titular   User  @relation("TitularLinks", fields: [titularId], references: [id])
+  caregiver User? @relation("CaregiverLinks", fields: [caregiverId], references: [id])
 }
 
 enum ProductCategory {
@@ -30,15 +51,17 @@ enum ProductCategory {
 }
 
 model Product {
-  id            String          @id @default(cuid())
-  name          String          @unique
-  description   String
-  priceCents    Int
-  imageUrl      String
-  stock         Int             @default(0)
-  codigoProduto Int?            @unique
-  category      ProductCategory @default(PRODUTO)
-  createdAt     DateTime        @default(now())
+  id                  String          @id @default(cuid())
+  name                String          @unique
+  description         String
+  priceCents          Int
+  imageUrl            String
+  stock               Int             @default(0)
+  codigoProduto       Int?            @unique
+  category            ProductCategory @default(PRODUTO)
+  usoContinuo         Boolean         @default(false)
+  duracaoEstimadaDias Int?
+  createdAt           DateTime        @default(now())
 
   cartItems  CartItem[]
   orderItems OrderItem[]
