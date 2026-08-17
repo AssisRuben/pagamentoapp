@@ -36,10 +36,10 @@ export default async function IndicacaoPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <div className="mb-8 flex flex-col items-center rounded-3xl bg-navy p-8 text-center text-white">
-        <Gift className="mb-3 h-9 w-9 text-coral" />
-        <h1 className="mb-1 text-xl font-semibold">Indique e Ganhe</h1>
-        <p className="text-sm text-white/70">
+      <div className="mb-6 flex flex-col items-center rounded-2xl bg-navy px-6 py-5 text-center text-white">
+        <Gift className="mb-2 h-7 w-7 text-coral" />
+        <h1 className="mb-1 text-lg font-semibold">Indique e Ganhe</h1>
+        <p className="text-xs text-white/70">
           Compartilhe seu link. Quando um amigo comprar, você acumula
           crédito pra usar nas próximas compras.
         </p>

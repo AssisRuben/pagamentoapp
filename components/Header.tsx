@@ -1,17 +1,14 @@
 import Link from "next/link";
 import { ShoppingCart, Sparkles } from "lucide-react";
 import { auth } from "@/auth";
-import { getOrCreateCart } from "@/lib/cart";
+import { getCartItemCount } from "@/lib/cart";
 import { signOutAction } from "@/lib/actions/auth";
 import SideMenu from "@/components/SideMenu";
 
 export default async function Header() {
   const session = await auth();
   const cartCount = session?.user?.id
-    ? (await getOrCreateCart(session.user.id)).items.reduce(
-        (sum, item) => sum + item.quantity,
-        0
-      )
+    ? await getCartItemCount(session.user.id)
     : 0;
 
   return (

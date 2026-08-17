@@ -49,10 +49,10 @@ export default async function SaudePage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <div className="mb-8 flex flex-col items-center rounded-3xl bg-navy p-8 text-center text-white">
-        <Activity className="mb-3 h-9 w-9 text-coral" />
-        <h1 className="mb-1 text-xl font-semibold">Saúde</h1>
-        <p className="text-sm text-white/70">
+      <div className="mb-6 flex flex-col items-center rounded-2xl bg-navy px-6 py-5 text-center text-white">
+        <Activity className="mb-2 h-7 w-7 text-coral" />
+        <h1 className="mb-1 text-lg font-semibold">Saúde</h1>
+        <p className="text-xs text-white/70">
           Acompanhe pressão, peso, gordura e glicemia ao longo do tempo.
         </p>
       </div>

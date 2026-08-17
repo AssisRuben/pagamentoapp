@@ -37,3 +37,16 @@ export async function getCartTotalCents(userId: string): Promise<number> {
     0
   );
 }
+
+/**
+ * Só a contagem de itens, sem upsert nem join com Product — usada no
+ * badge do carrinho no header, que roda em toda navegação. Ler é
+ * suficiente: se o carrinho ainda não existe, a contagem é 0 mesmo.
+ */
+export async function getCartItemCount(userId: string): Promise<number> {
+  const result = await prisma.cartItem.aggregate({
+    where: { cart: { userId } },
+    _sum: { quantity: true },
+  });
+  return result._sum.quantity ?? 0;
+}

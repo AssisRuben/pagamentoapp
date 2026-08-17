@@ -7,16 +7,17 @@ import CheckoutForm from "@/components/CheckoutForm";
 
 export default async function CheckoutPage() {
   const session = await auth();
-  const cart = await getOrCreateCart(session!.user.id);
+  const [cart, user] = await Promise.all([
+    getOrCreateCart(session!.user.id),
+    prisma.user.findUniqueOrThrow({
+      where: { id: session!.user.id },
+      select: { cpf: true },
+    }),
+  ]);
 
   if (cart.items.length === 0) {
     redirect("/carrinho");
   }
-
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session!.user.id },
-    select: { cpf: true },
-  });
 
   const totalCents = cart.items.reduce(
     (sum, item) => sum + item.product.priceCents * item.quantity,

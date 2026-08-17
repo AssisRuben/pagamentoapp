@@ -38,10 +38,9 @@ export default async function CuidadoPage() {
   }
 
   const userId = session.user.id;
-  const inviteCode = await createCareInvite();
-  const inviteLink = `${process.env.NEXTAUTH_URL}/cuidado/convite/${inviteCode}`;
 
-  const [caregiversOfMe, peopleICareFor] = await Promise.all([
+  const [inviteCode, caregiversOfMe, peopleICareFor] = await Promise.all([
+    createCareInvite(),
     prisma.careLink.findMany({
       where: { titularId: userId, status: "ACTIVE" },
       include: { caregiver: true },
@@ -51,6 +50,7 @@ export default async function CuidadoPage() {
       include: { titular: true },
     }),
   ]);
+  const inviteLink = `${process.env.NEXTAUTH_URL}/cuidado/convite/${inviteCode}`;
 
   const signals = await Promise.all(
     peopleICareFor.map((link) => getCareSignal(link.titularId))
@@ -58,10 +58,10 @@ export default async function CuidadoPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <div className="mb-8 flex flex-col items-center rounded-3xl bg-navy p-8 text-center text-white">
-        <HeartHandshake className="mb-3 h-9 w-9 text-coral" />
-        <h1 className="mb-1 text-xl font-semibold">Cuidado</h1>
-        <p className="text-sm text-white/70">
+      <div className="mb-6 flex flex-col items-center rounded-2xl bg-navy px-6 py-5 text-center text-white">
+        <HeartHandshake className="mb-2 h-7 w-7 text-coral" />
+        <h1 className="mb-1 text-lg font-semibold">Cuidado</h1>
+        <p className="text-xs text-white/70">
           Peça pra alguém acompanhar você à distância, com discrição — ou
           acompanhe quem você já cuida.
         </p>
