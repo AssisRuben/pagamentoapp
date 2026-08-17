@@ -37,6 +37,8 @@ async function getChecklistData(userId: string): Promise<ChecklistItemView[]> {
   return items.map((item) => ({
     id: item.id,
     title: item.title,
+    category: item.category,
+    timeOfDay: item.timeOfDay,
     completedToday: completedIds.has(item.id),
   }));
 }

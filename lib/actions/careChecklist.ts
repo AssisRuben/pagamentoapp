@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { checkCareCompletionAchievement } from "@/lib/timeline/achievements";
 import { todayDate } from "@/lib/timeline/format";
+import type { CareCategory } from "@/lib/generated/prisma/client";
 
 async function requireUserId(): Promise<string> {
   const session = await auth();
@@ -14,16 +15,64 @@ async function requireUserId(): Promise<string> {
   return session.user.id;
 }
 
-export async function createChecklistItem(title: string) {
+export type RoutineItemInput = {
+  title: string;
+  category: CareCategory;
+  timeOfDay?: string | null;
+  daysOfWeek: number[];
+};
+
+function validateRoutineInput(input: RoutineItemInput) {
+  const title = input.title.trim();
+  if (!title) throw new Error("Descreva o cuidado");
+  if (input.timeOfDay && !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.timeOfDay)) {
+    throw new Error("Horário inválido");
+  }
+  if (input.daysOfWeek.some((d) => d < 0 || d > 6)) {
+    throw new Error("Dia da semana inválido");
+  }
+  return title;
+}
+
+export async function createChecklistItem(input: RoutineItemInput) {
   const userId = await requireUserId();
-  const trimmed = title.trim();
-  if (!trimmed) throw new Error("Descreva o cuidado");
+  const title = validateRoutineInput(input);
 
   await prisma.careChecklistItem.create({
-    data: { userId, title: trimmed },
+    data: {
+      userId,
+      title,
+      category: input.category,
+      timeOfDay: input.timeOfDay || null,
+      daysOfWeek: input.daysOfWeek,
+    },
   });
 
   revalidatePath("/");
+  revalidatePath("/rotina");
+}
+
+export async function updateChecklistItem(id: string, input: RoutineItemInput) {
+  const userId = await requireUserId();
+  const title = validateRoutineInput(input);
+
+  const item = await prisma.careChecklistItem.findUnique({ where: { id } });
+  if (!item || item.userId !== userId) {
+    throw new Error("Sem permissão pra editar esse cuidado");
+  }
+
+  await prisma.careChecklistItem.update({
+    where: { id },
+    data: {
+      title,
+      category: input.category,
+      timeOfDay: input.timeOfDay || null,
+      daysOfWeek: input.daysOfWeek,
+    },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/rotina");
 }
 
 export async function deactivateChecklistItem(id: string) {
@@ -40,6 +89,7 @@ export async function deactivateChecklistItem(id: string) {
   });
 
   revalidatePath("/");
+  revalidatePath("/rotina");
 }
 
 export async function completeChecklistItem(itemId: string) {
@@ -61,6 +111,7 @@ export async function completeChecklistItem(itemId: string) {
   await checkCareCompletionAchievement(userId, date);
 
   revalidatePath("/");
+  revalidatePath("/rotina");
 }
 
 export async function uncompleteChecklistItem(itemId: string) {
@@ -80,4 +131,5 @@ export async function uncompleteChecklistItem(itemId: string) {
     });
 
   revalidatePath("/");
+  revalidatePath("/rotina");
 }

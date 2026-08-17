@@ -29,6 +29,7 @@ model User {
   careChecklistItems   CareChecklistItem[]
   timelineReactions    TimelineReaction[]
   timelineComments     TimelineComment[]
+  pushSubscriptions    PushSubscription[]
 }
 
 enum CareLinkStatus {
@@ -190,15 +191,30 @@ model TimelineEvent {
   @@index([sharedAt])
 }
 
-model CareChecklistItem {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+enum CareCategory {
+  TREINO
+  ALIMENTACAO
+  ESTUDOS
+  MEDICACAO
+  TERAPIA
+  OUTRO
+}
 
-  user        User                       @relation(fields: [userId], references: [id])
-  completions CareChecklistCompletion[]
+model CareChecklistItem {
+  id         String       @id @default(cuid())
+  userId     String
+  title      String
+  category   CareCategory @default(OUTRO)
+  // "HH:mm" em horário de Brasília; null = sem lembrete/horário fixo.
+  timeOfDay  String?
+  // 0=domingo..6=sábado; lista vazia = todo dia.
+  daysOfWeek Int[]        @default([])
+  active     Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+
+  user               User                      @relation(fields: [userId], references: [id])
+  completions        CareChecklistCompletion[]
+  reminderDispatches CareReminderDispatch[]
 }
 
 model CareChecklistCompletion {
@@ -210,6 +226,30 @@ model CareChecklistCompletion {
   item CareChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@unique([itemId, date])
+}
+
+// Evita reenviar o mesmo lembrete duas vezes no dia (idempotência, igual
+// já fazemos em CareChecklistCompletion e syncOrderStatus).
+model CareReminderDispatch {
+  id     String   @id @default(cuid())
+  itemId String
+  date   DateTime @db.Date
+  sentAt DateTime @default(now())
+
+  item CareChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, date])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 // Curtir/comentar na timeline é pessoal (só o próprio dono vê e reage ao seu

@@ -13,6 +13,7 @@ import {
   LogOut,
   LogIn,
   Users,
+  ListChecks,
 } from "lucide-react";
 
 function subscribeNoop() {
@@ -33,6 +34,7 @@ function useMounted() {
 const MENU_ITEMS = [
   { href: "/carrinho", label: "Carrinho", icon: ShoppingCart },
   { href: "/pedidos", label: "Meus pedidos", icon: Package, authOnly: true },
+  { href: "/rotina", label: "Minha Rotina", icon: ListChecks, authOnly: true },
   { href: "/comunidade", label: "Comunidade", icon: Users, authOnly: true },
   { href: "/indicacao", label: "Indique e Ganhe", icon: Gift },
 ];
