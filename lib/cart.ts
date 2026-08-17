@@ -50,3 +50,43 @@ export async function getCartItemCount(userId: string): Promise<number> {
   });
   return result._sum.quantity ?? 0;
 }
+
+/**
+ * Mutações do carrinho como funções puras (recebem userId em vez de
+ * resolver sessão) — reaproveitadas tanto pelas Server Actions em
+ * lib/actions/cart.ts (páginas web) quanto pelas rotas de API em
+ * app/api/mobile/cart/** (app Expo), evitando duplicar a lógica.
+ */
+export async function addCartItem(
+  userId: string,
+  productId: string,
+  quantity: number = 1
+) {
+  const cartId = await getOrCreateCartId(userId);
+  await prisma.cartItem.upsert({
+    where: { cartId_productId: { cartId, productId } },
+    update: { quantity: { increment: quantity } },
+    create: { cartId, productId, quantity },
+  });
+}
+
+export async function updateCartItemQuantity(
+  userId: string,
+  itemId: string,
+  quantity: number
+) {
+  const cartId = await getOrCreateCartId(userId);
+  if (quantity <= 0) {
+    await prisma.cartItem.delete({ where: { id: itemId, cartId } });
+  } else {
+    await prisma.cartItem.update({
+      where: { id: itemId, cartId },
+      data: { quantity },
+    });
+  }
+}
+
+export async function removeCartItem(userId: string, itemId: string) {
+  const cartId = await getOrCreateCartId(userId);
+  await prisma.cartItem.delete({ where: { id: itemId, cartId } });
+}
