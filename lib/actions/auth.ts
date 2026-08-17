@@ -3,8 +3,10 @@
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { AuthError } from "next-auth";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { signIn } from "@/auth";
+import { signIn, signOut } from "@/auth";
+import { generateCode } from "@/lib/codes";
 
 const registerSchema = z.object({
   name: z.string().trim().min(2, "Informe seu nome completo"),
@@ -39,14 +41,39 @@ export async function registerUser(
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  await prisma.user.create({
-    data: {
-      name,
-      email,
-      passwordHash,
-      cart: { create: {} },
-    },
-  });
+  const refCode = (await cookies()).get("ref")?.value;
+  const referrer = refCode
+    ? await prisma.user.findUnique({ where: { referralCode: refCode } })
+    : null;
+
+  // Colisão de referralCode é praticamente impossível (base36 de 7
+  // caracteres), mas como o campo é único, tenta de novo em caso de erro
+  // em vez de deixar o cadastro falhar.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      await prisma.user.create({
+        data: {
+          name,
+          email,
+          passwordHash,
+          referralCode: generateCode(),
+          referredById: referrer?.id,
+          cart: { create: {} },
+        },
+      });
+      break;
+    } catch (error) {
+      const isUniqueReferralCollision =
+        error instanceof Error &&
+        "code" in error &&
+        error.code === "P2002" &&
+        "meta" in error &&
+        JSON.stringify((error as { meta?: unknown }).meta).includes(
+          "referralCode"
+        );
+      if (!isUniqueReferralCollision || attempt === 4) throw error;
+    }
+  }
 
   await signIn("credentials", {
     email,
@@ -55,6 +82,11 @@ export async function registerUser(
   });
 
   return {};
+}
+
+export async function signOutAction() {
+  "use server";
+  await signOut({ redirectTo: "/" });
 }
 
 export type LoginState = {
