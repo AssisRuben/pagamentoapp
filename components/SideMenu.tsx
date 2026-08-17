@@ -14,6 +14,7 @@ import {
   LogOut,
   LogIn,
   HeartHandshake,
+  Activity,
 } from "lucide-react";
 
 const MENU_ITEMS = [
@@ -22,6 +23,7 @@ const MENU_ITEMS = [
   { href: "/pedidos", label: "Meus pedidos", icon: Package, authOnly: true },
   { href: "/indicacao", label: "Indique e Ganhe", icon: Gift },
   { href: "/cuidado", label: "Cuidado", icon: HeartHandshake, authOnly: true },
+  { href: "/saude", label: "Saúde", icon: Activity, authOnly: true },
 ];
 
 export default function SideMenu({

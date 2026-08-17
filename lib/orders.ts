@@ -123,7 +123,7 @@ export async function syncOrderStatus(
   const jaProcessado = await prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id: orderId },
-      include: { items: true },
+      include: { items: { include: { product: true } } },
     });
     if (!order) return true;
     if (order.status === "APPROVED" || order.status === "REJECTED") {
@@ -147,6 +147,19 @@ export async function syncOrderStatus(
       });
       if (cart) {
         await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+      }
+
+      for (const item of order.items) {
+        if (!item.product.healthCheckType) continue;
+        await tx.healthMeasurement.create({
+          data: {
+            userId: order.userId,
+            type: item.product.healthCheckType,
+            local: "Farmácia Conviva",
+            measuredAt: order.createdAt,
+            orderId: order.id,
+          },
+        });
       }
     }
 
