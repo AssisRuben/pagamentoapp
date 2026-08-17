@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { Pill, ShoppingBag, Gift, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import ProductCard from "@/components/ProductCard";
 import DailyChecklist, { type ChecklistItemView } from "@/components/DailyChecklist";
 import TimelineFeed from "@/components/TimelineFeed";
 import type { TimelineFeedItem } from "@/components/TimelineCard";
+import { formatDateLabel, todayDate, todayDateString } from "@/lib/timeline/format";
+import { getExtraInfo } from "@/lib/timeline/extraInfo";
+import { getReactionState } from "@/lib/timeline/reactions";
 import {
   fetchCoverImage,
   fetchFinanceSnippet,
@@ -15,23 +18,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const CATEGORY_SHORTCUTS = [
-  { href: "/medicamentos", label: "Medicamentos", icon: Pill },
-  { href: "/produtos", label: "Produtos", icon: ShoppingBag },
-  { href: "/indicacao", label: "Indique e Ganhe", icon: Gift },
-];
-
-function todayDate(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
-
-function formatDateLabel(date: Date): string {
-  const today = todayDate();
-  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  if (target.getTime() === today.getTime()) return "Hoje";
-  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-}
+const ACHIEVEMENTS_PAGE_SIZE = 10;
 
 async function getChecklistData(userId: string): Promise<ChecklistItemView[]> {
   const items = await prisma.careChecklistItem.findMany({
@@ -53,63 +40,98 @@ async function getChecklistData(userId: string): Promise<ChecklistItemView[]> {
   }));
 }
 
-async function getTimelineFeedItems(userId: string): Promise<TimelineFeedItem[]> {
-  const [events, fact, finance, quote, healthImage, financeImage, funImage] =
-    await Promise.all([
-      prisma.timelineEvent.findMany({
-        where: { userId },
-        orderBy: { occurredAt: "desc" },
-        take: 20,
-      }),
-      fetchWellnessFact(),
-      fetchFinanceSnippet(),
-      fetchFunQuote(),
-      fetchCoverImage("saúde bem-estar"),
-      fetchCoverImage("dinheiro finanças"),
-      fetchCoverImage("motivação"),
-    ]);
+async function getContentItems(userId: string): Promise<TimelineFeedItem[]> {
+  const day = todayDateString();
+  const [fact, finance, quote, healthImage, financeImage, funImage] = await Promise.all([
+    fetchWellnessFact(),
+    fetchFinanceSnippet(),
+    fetchFunQuote(),
+    fetchCoverImage("saúde bem-estar"),
+    fetchCoverImage("dinheiro finanças"),
+    fetchCoverImage("motivação"),
+  ]);
 
-  const contentItems: TimelineFeedItem[] = [];
+  const candidates: Omit<TimelineFeedItem, "liked" | "comments">[] = [];
   if (fact) {
-    contentItems.push({
+    candidates.push({
       id: "content-fact",
+      itemKey: `fact-${day}`,
       kind: "content",
       title: "Curiosidade do dia",
       message: fact.text,
+      extra: getExtraInfo("content-fact"),
       imageUrl: healthImage,
       dateLabel: "Hoje",
     });
   }
   if (finance) {
-    contentItems.push({
+    candidates.push({
       id: "content-finance",
+      itemKey: `finance-${day}`,
       kind: "content",
       title: "Mercado hoje",
       message: finance.text,
+      extra: getExtraInfo("content-finance"),
       imageUrl: financeImage,
       dateLabel: "Hoje",
     });
   }
   if (quote) {
-    contentItems.push({
+    candidates.push({
       id: "content-quote",
+      itemKey: `quote-${day}`,
       kind: "content",
       title: "Frase do dia",
       message: `"${quote.text}" — ${quote.author}`,
+      extra: getExtraInfo("content-quote"),
       imageUrl: funImage,
       dateLabel: "Hoje",
     });
   }
 
-  const achievementItems: TimelineFeedItem[] = events.map((event) => ({
+  const { likedKeys, commentsByKey } = await getReactionState(
+    userId,
+    candidates.map((c) => c.itemKey)
+  );
+  const liked = new Set(likedKeys);
+
+  return candidates.map((c) => ({
+    ...c,
+    liked: liked.has(c.itemKey),
+    comments: commentsByKey[c.itemKey] ?? [],
+  }));
+}
+
+async function getInitialAchievements(
+  userId: string
+): Promise<{ items: TimelineFeedItem[]; hasMore: boolean }> {
+  const events = await prisma.timelineEvent.findMany({
+    where: { userId },
+    orderBy: { occurredAt: "desc" },
+    take: ACHIEVEMENTS_PAGE_SIZE + 1,
+  });
+  const hasMore = events.length > ACHIEVEMENTS_PAGE_SIZE;
+  const page = events.slice(0, ACHIEVEMENTS_PAGE_SIZE);
+
+  const { likedKeys, commentsByKey } = await getReactionState(
+    userId,
+    page.map((e) => e.id)
+  );
+  const liked = new Set(likedKeys);
+
+  const items: TimelineFeedItem[] = page.map((event) => ({
     id: event.id,
+    itemKey: event.id,
     kind: "achievement",
     title: event.title,
     message: event.message,
+    extra: getExtraInfo(event.type),
     dateLabel: formatDateLabel(event.occurredAt),
+    liked: liked.has(event.id),
+    comments: commentsByKey[event.id] ?? [],
   }));
 
-  return [...contentItems, ...achievementItems];
+  return { items, hasMore };
 }
 
 export default async function HomePage() {
@@ -118,17 +140,26 @@ export default async function HomePage() {
   let products: Awaited<ReturnType<typeof prisma.product.findMany>> = [];
   let dbError = false;
   let checklistItems: ChecklistItemView[] = [];
-  let timelineItems: TimelineFeedItem[] = [];
+  let contentItems: TimelineFeedItem[] = [];
+  let initialAchievements: TimelineFeedItem[] = [];
+  let achievementsHasMore = false;
 
   try {
     const results = await Promise.all([
       prisma.product.findMany({ orderBy: { createdAt: "asc" } }),
       session?.user?.id ? getChecklistData(session.user.id) : Promise.resolve([]),
-      session?.user?.id ? getTimelineFeedItems(session.user.id) : Promise.resolve([]),
+      session?.user?.id
+        ? getContentItems(session.user.id)
+        : Promise.resolve([] as TimelineFeedItem[]),
+      session?.user?.id
+        ? getInitialAchievements(session.user.id)
+        : Promise.resolve({ items: [], hasMore: false }),
     ]);
     products = results[0];
     checklistItems = results[1];
-    timelineItems = results[2];
+    contentItems = results[2];
+    initialAchievements = results[3].items;
+    achievementsHasMore = results[3].hasMore;
   } catch (error) {
     console.error("Erro ao carregar catálogo:", error);
     dbError = true;
@@ -139,30 +170,14 @@ export default async function HomePage() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6">
-      <h1 className="mb-1 text-2xl font-semibold">Olá! 👋</h1>
-      <p className="mb-6 text-sm text-navy/60 dark:text-white/60">
-        Tudo pro seu bem-estar, perto de você.
-      </p>
-
-      <div className="snap-row mb-8">
-        {CATEGORY_SHORTCUTS.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className="flex w-28 flex-col items-center gap-2 rounded-2xl bg-card p-4 text-center text-xs font-medium shadow-sm ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-md dark:ring-white/10"
-          >
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-mint/15 text-mint">
-              <Icon className="h-5 w-5" />
-            </span>
-            {label}
-          </Link>
-        ))}
-      </div>
-
       {session?.user?.id && (
         <>
           <DailyChecklist items={checklistItems} />
-          <TimelineFeed items={timelineItems} />
+          <TimelineFeed
+            contentItems={contentItems}
+            initialAchievements={initialAchievements}
+            initialHasMore={achievementsHasMore}
+          />
         </>
       )}
 

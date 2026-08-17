@@ -27,6 +27,8 @@ model User {
   healthMeasurements   HealthMeasurement[]
   timelineEvents       TimelineEvent[]
   careChecklistItems   CareChecklistItem[]
+  timelineReactions    TimelineReaction[]
+  timelineComments     TimelineComment[]
 }
 
 enum CareLinkStatus {
@@ -203,4 +205,32 @@ model CareChecklistCompletion {
   item CareChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@unique([itemId, date])
+}
+
+// Curtir/comentar na timeline é pessoal (só o próprio dono vê e reage ao seu
+// feed, não é social entre usuários) — por isso não há relação com outros
+// usuários, só o dono. `itemKey` identifica tanto conquistas reais
+// (usa o id do TimelineEvent) quanto cards de conteúdo do dia, que não são
+// linhas no banco (usa uma chave sintética tipo "fact-2026-08-17").
+model TimelineReaction {
+  id        String   @id @default(cuid())
+  userId    String
+  itemKey   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, itemKey])
+}
+
+model TimelineComment {
+  id        String   @id @default(cuid())
+  userId    String
+  itemKey   String
+  text      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, itemKey])
 }

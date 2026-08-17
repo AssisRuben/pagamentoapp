@@ -1,4 +1,5 @@
-const API_NINJAS_KEY = process.env.API_NINJAS_KEY;
+import { pickWellnessFact } from "./wellnessFacts";
+
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY;
 
 const FRASES_JSON_URL =
@@ -9,24 +10,12 @@ export type FinanceSnippet = { text: string };
 export type FunQuote = { text: string; author: string };
 
 /**
- * Curiosidade do dia (a mesma pra todo mundo, a API já garante isso).
- * Retorna null em qualquer falha — conteúdo decorativo nunca pode derrubar
- * a home.
+ * Curiosidade do dia. Usamos uma lista curada em `wellnessFacts.ts` em vez
+ * de uma API (a única opção gratuita viável, API Ninjas, só responde em
+ * inglês, sem parâmetro de idioma).
  */
 export async function fetchWellnessFact(): Promise<WellnessFact | null> {
-  if (!API_NINJAS_KEY) return null;
-  try {
-    const res = await fetch("https://api.api-ninjas.com/v1/factoftheday", {
-      headers: { "X-Api-Key": API_NINJAS_KEY },
-      next: { revalidate: 21600 },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const fact = Array.isArray(data) ? data[0]?.fact : data?.fact;
-    return typeof fact === "string" ? { text: fact } : null;
-  } catch {
-    return null;
-  }
+  return { text: pickWellnessFact() };
 }
 
 /**

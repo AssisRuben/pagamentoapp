@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { checkCareCompletionAchievement } from "@/lib/timeline/achievements";
+import { todayDate } from "@/lib/timeline/format";
 
 async function requireUserId(): Promise<string> {
   const session = await auth();
@@ -11,11 +12,6 @@ async function requireUserId(): Promise<string> {
     throw new Error("Não autenticado");
   }
   return session.user.id;
-}
-
-function todayDate(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
 export async function createChecklistItem(title: string) {
